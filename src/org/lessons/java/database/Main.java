@@ -1,5 +1,6 @@
 package org.lessons.java.database;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Scanner;
 
@@ -48,9 +49,51 @@ public class Main {
                     }
                 }
             }
+
+            System.out.print("Inserisci l'Id di una nazione: ");
+            String parameterId = String.valueOf(Integer.parseInt(scan.nextLine()));
+
+            String sqlLangAndStat = """
+                    SELECT cou.name as country_name, GROUP_CONCAT(DISTINCT l.language SEPARATOR ', ') AS spoken_languages, cs.year, cs.population, cs.gdp
+                    FROM countries cou
+                    JOIN country_stats cs ON cs.country_id = cou.country_id
+                    JOIN country_languages cl ON cou.country_id = cl.country_id
+                    JOIN languages l ON l.language_id = cl.language_id
+                    WHERE cou.country_id = ? AND cs.year =
+                        (SELECT MAX(year) as max_year
+                        FROM country_stats
+                        WHERE country_id = COU.country_id)
+                    GROUP BY cs.year;
+                    """;
+            try(PreparedStatement ps = connection.prepareStatement(sqlLangAndStat)) {
+                // settiamo il parametro della query
+                ps.setInt(1, Integer.parseInt(parameterId)); // gli apici del LIKE li inserisce automaticamente il setString
+                // eseguo lo statement che restituisce un ResultSet
+                try(ResultSet rs = ps.executeQuery()) {
+                    // ciclo sulle righe del ResultSet fino a quando esiste una riga succesiva
+                    if (rs.next()) {
+                        // per ogni riga prendo i valori delle singole colonne
+                        String countryName = rs.getNString("country_name");
+                        String spoken_languages = rs.getNString("spoken_languages");
+                        int year = rs.getInt("year");
+                        int population = rs.getInt("population");
+                        BigDecimal gdp = rs.getBigDecimal("gdp");
+                        // stampo l'output
+                        System.out.println("Details for country: " + countryName);
+                        System.out.println("Languages: " + spoken_languages);
+                        System.out.println("Most recent stats");
+                        System.out.println("Year: " + year);
+                        System.out.println("Population: " + population);
+                        System.out.println("GDP: " + gdp);
+                    }
+                }
+            }
+
         } catch (SQLException e) {
             System.out.println("Non è stato possibile connettersi al database");
             e.printStackTrace();
         }
+
+        scan.close();
     }
 }
